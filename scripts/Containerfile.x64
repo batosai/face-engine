@@ -1,0 +1,11 @@
+FROM docker.io/library/node:24.22.1-bookworm-slim AS node
+
+FROM docker.io/library/ubuntu:24.04 AS runtime
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
+COPY --from=node /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
+RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
+
+FROM runtime AS build
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential ca-certificates libssl-dev pkg-config \
+    && rm -rf /var/lib/apt/lists/*
