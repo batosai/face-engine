@@ -10,7 +10,7 @@ Local face detection and embedding generation for Node.js. `FaceEngine` accepts 
 | `crates/face-napi/` | NAPI-RS binding. Exposes the Rust engine and converts its results into JavaScript objects. |
 | `src/index.ts` | Public TypeScript API. Starts the engine, manages the bounded request queue, and handles shutdown. |
 | `src/detection-worker.ts` | Node.js worker that owns the Rust engine and processes requests off the main thread. |
-| `scripts/` | Development tools for checking ONNX graphs. |
+| `scripts/` | Development tools for checking ONNX graphs and comparing photos. |
 | `tests/` | Node.js integration tests for the engine API. |
 | `profiles/` | Versioned manifests that specify the ONNX files and their SHA-256 hashes. |
 | `models/`, `photos/` | Local ONNX weights and test photos. Git ignores both directories. |
@@ -54,3 +54,11 @@ try {
   await engine.close()
 }
 ```
+
+## Compare two portraits
+
+```sh
+npm run compare -- photos/portrait-a.jpg photos/portrait-b.jpg
+```
+
+Each photo must contain exactly one analyzable face. The script prints a cosine similarity score between −1 and 1. Pass a third argument to select another manifest. `engine.compare(a, b)` is synchronous and throws `INCOMPATIBLE_EMBEDDING` for different embedding spaces, invalid vectors, or a zero norm. The calling application sets its own identity threshold.

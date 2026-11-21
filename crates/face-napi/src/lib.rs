@@ -139,6 +139,16 @@ fn js_error(error: face_core::EngineError) -> napi::Error {
     napi::Error::from_reason(format!("{}: {}", error.code, error.message))
 }
 
+#[napi]
+pub fn compare_embeddings(
+    a_space: String,
+    a: Float32Array,
+    b_space: String,
+    b: Float32Array,
+) -> napi::Result<f64> {
+    face_core::compare_embeddings(&a_space, &a, &b_space, &b).map_err(js_error)
+}
+
 impl From<face_core::Detection> for Detection {
     fn from(face: face_core::Detection) -> Self {
         Self {

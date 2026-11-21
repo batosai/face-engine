@@ -8,6 +8,7 @@ mod engine;
 mod picture;
 mod scrfd;
 
+pub use embedding::compare_embeddings;
 pub use engine::{Detection, Embedding, Engine, EngineError, Face, ImageInput, Point, Rect};
 
 fn environment() -> ort::Result<&'static Environment> {

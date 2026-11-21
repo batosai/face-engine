@@ -1,6 +1,7 @@
 import { resolve } from 'node:path'
 import { types } from 'node:util'
 import { Worker } from 'node:worker_threads'
+import type { compareEmbeddings } from '#native'
 import type { Operation, WorkerInput, WorkerReply, WorkerRequest, WorkerResult } from './detection-worker.js'
 
 export type ImageInput = string | Uint8Array | {
@@ -61,6 +62,7 @@ function prepareInput(image: ImageInput): { input: WorkerInput; transfer: ArrayB
 
 export class FaceEngine {
   #worker
+  #compareEmbeddings: typeof compareEmbeddings
   #ready = Promise.withResolvers<void>()
   #exit = Promise.withResolvers<void>()
   #closing?: Promise<void>
@@ -69,9 +71,10 @@ export class FaceEngine {
   #capacity: number
   #nextRequest = 0
 
-  private constructor(token: symbol, manifest: string, threads: number, maxPending: number) {
+  private constructor(token: symbol, manifest: string, threads: number, maxPending: number, compare: typeof compareEmbeddings) {
     if (token !== createEngine) throw new TypeError('Use FaceEngine.create()')
     this.#capacity = 1 + maxPending
+    this.#compareEmbeddings = compare
     this.#worker = new Worker(new URL('./detection-worker.js', import.meta.url), {
       workerData: { manifest, threads },
     })
@@ -103,7 +106,10 @@ export class FaceEngine {
     if (!Number.isInteger(threads) || threads < 1 || threads > 64 || !Number.isInteger(maxPending) || maxPending < 0 || maxPending > 32) {
       throw error('LIMIT_EXCEEDED', 'Expected 1–64 threads and 0–32 pending requests')
     }
-    const engine = new FaceEngine(createEngine, resolve(manifest), threads, maxPending)
+    const native = await import('#native').catch((failure: unknown) => {
+      throw error('MODEL_INCOMPATIBLE', failure instanceof Error ? failure.message : String(failure))
+    })
+    const engine = new FaceEngine(createEngine, resolve(manifest), threads, maxPending, native.compareEmbeddings)
     try {
       await engine.#ready.promise
       return engine
@@ -123,6 +129,30 @@ export class FaceEngine {
     const result = await this.#submit('analyze', image)
     if (result.operation !== 'analyze') throw new Error('Unexpected worker result for analyze()')
     return result.faces
+  }
+
+  compare(a: Embedding, b: Embedding): number {
+    const aSpace = a?.spaceId
+    const bSpace = b?.spaceId
+    const aValues = a?.values
+    const bValues = b?.values
+    if (typeof aSpace !== 'string' || typeof bSpace !== 'string' ||
+      !types.isFloat32Array(aValues) || !types.isFloat32Array(bValues)) {
+      throw error('INCOMPATIBLE_EMBEDDING', 'Expected embeddings with a spaceId and Float32Array values')
+    }
+    if (aValues.length !== 512 || bValues.length !== 512) {
+      throw error('INCOMPATIBLE_EMBEDDING', 'Expected two 512-dimensional embeddings')
+    }
+    const left = types.isSharedArrayBuffer(aValues.buffer) ? new Float32Array(aValues) : aValues
+    const right = types.isSharedArrayBuffer(bValues.buffer) ? new Float32Array(bValues) : bValues
+    try {
+      return this.#compareEmbeddings(aSpace, left, bSpace, right)
+    } catch (failure) {
+      if (failure instanceof Error && failure.message.startsWith('INCOMPATIBLE_EMBEDDING: ')) {
+        throw error('INCOMPATIBLE_EMBEDDING', failure.message.slice('INCOMPATIBLE_EMBEDDING: '.length))
+      }
+      throw failure
+    }
   }
 
   #submit(operation: Operation, image: ImageInput): Promise<WorkerResult> {

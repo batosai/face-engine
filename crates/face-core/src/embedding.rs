@@ -15,6 +15,43 @@ pub(crate) const ADAPTER: &str = "arcface-rgb112-v1";
 const DIMENSION: usize = 512;
 const PIXELS: usize = SIDE * SIDE;
 
+pub fn compare_embeddings(
+    a_space: &str,
+    a: &[f32],
+    b_space: &str,
+    b: &[f32],
+) -> Result<f64, EngineError> {
+    if a_space.is_empty() || a_space != b_space {
+        return Err(EngineError::incompatible_embedding(
+            "Expected embeddings from the same space",
+        ));
+    }
+    if a.len() != DIMENSION || b.len() != DIMENSION {
+        return Err(EngineError::incompatible_embedding(
+            "Expected two 512-dimensional embeddings",
+        ));
+    }
+
+    let (mut dot, mut a_norm, mut b_norm) = (0.0, 0.0, 0.0);
+    for (&a, &b) in a.iter().zip(b) {
+        if !a.is_finite() || !b.is_finite() {
+            return Err(EngineError::incompatible_embedding(
+                "Embedding values must be finite",
+            ));
+        }
+        let (a, b) = (f64::from(a), f64::from(b));
+        dot += a * b;
+        a_norm += a * a;
+        b_norm += b * b;
+    }
+    if a_norm == 0.0 || b_norm == 0.0 {
+        return Err(EngineError::incompatible_embedding(
+            "Embedding norms must be non-zero",
+        ));
+    }
+    Ok((dot / (a_norm.sqrt() * b_norm.sqrt())).clamp(-1.0, 1.0))
+}
+
 pub(crate) struct Recognizer {
     session: Session,
     tensor: Tensor<f32>,

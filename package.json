@@ -13,7 +13,8 @@
     "build:native": "napi build --release --manifest-path crates/face-napi/Cargo.toml --output-dir build --platform --esm -- --locked",
     "typecheck": "tsc --noEmit",
     "check:models": "node dist/scripts/check-models.js",
-    "test": "node --test dist/tests/detection.test.js"
+    "compare": "node dist/scripts/compare-photos.js",
+    "test": "node --test dist/tests/*.test.js"
   },
   "napi": {
     "binaryName": "face-engine",

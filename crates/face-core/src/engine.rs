@@ -35,6 +35,13 @@ impl EngineError {
             message: error.to_string(),
         }
     }
+
+    pub(crate) fn incompatible_embedding(message: &str) -> Self {
+        Self {
+            code: "INCOMPATIBLE_EMBEDDING",
+            message: message.to_owned(),
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
