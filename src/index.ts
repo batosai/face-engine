@@ -1,7 +1,7 @@
 import { resolve } from 'node:path'
 import { types } from 'node:util'
 import { Worker } from 'node:worker_threads'
-import type { WorkerInput, WorkerReply, WorkerRequest } from './scripts/detection-worker.js'
+import type { WorkerInput, WorkerReply, WorkerRequest } from './detection-worker.js'
 
 export type ImageInput = string | Uint8Array | {
   format: 'rgb24'
@@ -69,7 +69,7 @@ export class FaceEngine {
   private constructor(token: symbol, manifest: string, threads: number, maxPending: number) {
     if (token !== createEngine) throw new TypeError('Use FaceEngine.create()')
     this.#capacity = 1 + maxPending
-    this.#worker = new Worker(new URL('./scripts/detection-worker.js', import.meta.url), {
+    this.#worker = new Worker(new URL('./detection-worker.js', import.meta.url), {
       workerData: { manifest, threads },
     })
     this.#worker.on('message', (reply: WorkerReply) => {

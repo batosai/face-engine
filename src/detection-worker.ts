@@ -1,6 +1,6 @@
 import { parentPort, workerData } from 'node:worker_threads'
 import type { NativeDetector } from '#native'
-import type { Detection } from '../index.js'
+import type { Detection } from './index.js'
 
 export type WorkerInput =
   | { path: string }

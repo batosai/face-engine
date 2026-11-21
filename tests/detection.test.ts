@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict'
 import { resolve } from 'node:path'
 import { test } from 'node:test'
-import { FaceEngine } from '../index.js'
-import type { ImageInput } from '../index.js'
+import { FaceEngine, type ImageInput } from '../src/index.js'
 
 const manifest = resolve('profiles/buffalo-sc.json')
 const blankPng = Buffer.from(
