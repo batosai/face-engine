@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "detector": {
+    "adapter": "scrfd-640-v1",
+    "path": "../models/buffalo_sc/det_500m.onnx",
+    "sha256": "5e4447f50245bbd7966bd6c0fa52938c61474a04ec7def48753668a9d8b4ea3a"
+  }
+}
