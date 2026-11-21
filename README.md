@@ -67,7 +67,7 @@ Each photo must contain exactly one analyzable face. The script prints a cosine 
 
 `npm run --silent bench -- photos 400` runs 400 analyses at each of 1, 2, and 4 threads, using a separate process for each setting. It reports latency, throughput, and process memory usage.
 
-Local archives package the ESM API and its declarations separately from the Linux x64 addon. The application supplies the model files. The x64 archives passed offline installation and runtime tests on Ubuntu 24.04 with Node.js 24.22.1. The current addon requires `GLIBC_2.38` and `GLIBCXX_3.4.31`. Debian 12 ships older libraries and is incompatible with this build.
+Local archives package the ESM API and its declarations separately from the Linux x64 addon. The application supplies the model files. The same x64 archives passed offline installation and runtime tests on Ubuntu 24.04 and Debian 13.7 with Node.js 24.22.1. The current addon requires `GLIBC_2.38` and `GLIBCXX_3.4.31`. Debian 12 ships older libraries and is incompatible with this build.
 
 Install both archives from a consuming project.
 
@@ -76,3 +76,5 @@ npm install --offline --ignore-scripts \
   /path/to/artifacts/jrmc-face-engine-0.0.0.tgz \
   /path/to/artifacts/jrmc-face-engine-linux-x64-gnu-0.0.0.tgz
 ```
+
+The planned GitHub Actions workflow will build, test, and store Linux x64 and ARM64 archives for future npm releases.
