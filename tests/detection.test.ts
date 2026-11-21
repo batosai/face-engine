@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
-import { resolve } from 'node:path'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { dirname, join, resolve } from 'node:path'
 import { test } from 'node:test'
 import { FaceEngine, type ImageInput } from '../src/index.js'
 
@@ -33,12 +35,28 @@ test('close drains accepted work, rejects new work and resolves once', async (t)
   const engine = await FaceEngine.create({ manifest, maxPending: 1 })
   t.after(() => engine.close())
   const first = engine.detect(blankRgb)
-  const second = engine.detect(blankPng)
+  const second = engine.analyze(blankPng)
   const rejected = engine.detect(blankRgb)
   const close = engine.close()
   assert.strictEqual(engine.close(), close)
   await assert.rejects(rejected, { code: 'QUEUE_FULL' })
   await assert.rejects(engine.detect(blankRgb), { code: 'ENGINE_CLOSED' })
+  await assert.rejects(engine.analyze(blankRgb), { code: 'ENGINE_CLOSED' })
   assert.deepEqual(await Promise.all([first, second]), [[], []])
   await close
+})
+
+test('a detection-only profile keeps working and rejects analyze()', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'face-engine-test-'))
+  t.after(() => rm(directory, { recursive: true }))
+  const { version, detector } = JSON.parse(await readFile(manifest, 'utf8'))
+  const path = join(directory, 'detector.json')
+  await writeFile(path, JSON.stringify({
+    version,
+    detector: { ...detector, path: resolve(dirname(manifest), detector.path) },
+  }))
+  const engine = await FaceEngine.create({ manifest: path })
+  t.after(() => engine.close())
+  assert.deepEqual(await engine.detect(blankRgb), [])
+  await assert.rejects(engine.analyze(blankRgb), { code: 'MODEL_INCOMPATIBLE' })
 })

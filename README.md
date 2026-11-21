@@ -1,12 +1,12 @@
 # @jrmc/face-engine
 
-Local face detection for Node.js. `FaceEngine` accepts a JPEG or PNG path, encoded image bytes, or an RGB frame. `detect()` returns a bounding box, a detection score, and five landmarks per face in the orientation-corrected image.
+Local face detection and embedding generation for Node.js. `FaceEngine` accepts a JPEG or PNG path, encoded image bytes, or an RGB frame. `detect()` returns a bounding box, a detection score, and five landmarks per face in the orientation-corrected image. `analyze()` also returns a normalized embedding when a recognition model is configured.
 
 ## Project layout
 
 | Path | Purpose |
 | --- | --- |
-| `crates/face-core/` | Rust engine. Decodes images, and detects faces with SCRFD using ONNX Runtime. |
+| `crates/face-core/` | Rust engine. Decodes images, detects faces with SCRFD, aligns them, and generates embeddings with ONNX Runtime. |
 | `crates/face-napi/` | NAPI-RS binding. Exposes the Rust engine and converts its results into JavaScript objects. |
 | `src/index.ts` | Public TypeScript API. Starts the engine, manages the bounded request queue, and handles shutdown. |
 | `src/detection-worker.ts` | Node.js worker that owns the Rust engine and processes requests off the main thread. |
@@ -27,7 +27,7 @@ npm run build
 npm run typecheck
 ```
 
-The integration tests and `npm run check:models` use `det_500m.onnx` and `w600k_mbf.onnx` in `models/buffalo_sc/`. `npm run check:models` verifies both model hashes. InsightFace provides these weights for non-commercial research. [Model release](https://github.com/deepinsight/insightface/releases/tag/model-zoo) · [Model license](https://github.com/deepinsight/insightface/blob/master/server/backend/insightface_server/licensing/defaults/buffalo_sc/MODEL.LICENSE)
+The integration tests and `npm run check:models` use `det_500m.onnx` and `w600k_mbf.onnx` in `models/buffalo_sc/`. The sample profile verifies the SHA-256 hash of each model. InsightFace provides these weights for non-commercial research. [Model release](https://github.com/deepinsight/insightface/releases/tag/model-zoo) · [Model license](https://github.com/deepinsight/insightface/blob/master/server/backend/insightface_server/licensing/defaults/buffalo_sc/MODEL.LICENSE)
 
 ```sh
 mkdir -p models/buffalo_sc
@@ -37,4 +37,20 @@ printf '%s\n' '57d31b56b6ffa911c8a73cfc1707c73cab76efe7f13b675a05223bf42de47c72 
   | sha256sum --check && unzip -n models/buffalo_sc.zip -d models/buffalo_sc
 npm test
 npm run check:models
+```
+
+## Analyze an image
+
+With the [`buffalo-sc` profile](profiles/buffalo-sc.json), each embedding is a 512-value `Float32Array` with a `spaceId` that identifies the model weights and alignment recipe. A manifest can omit `recognizer` for detection-only use. Calling `analyze()` with that manifest rejects with `MODEL_INCOMPATIBLE`.
+
+```js
+import { FaceEngine } from './dist/src/index.js'
+
+const engine = await FaceEngine.create({ manifest: './profiles/buffalo-sc.json' })
+try {
+  const faces = await engine.analyze('./photos/portrait.jpg')
+  console.log(faces.length)
+} finally {
+  await engine.close()
+}
 ```

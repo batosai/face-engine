@@ -1,18 +1,49 @@
 use std::{
+    borrow::Cow,
     fs::{self, File},
     io::{Cursor, Read},
     path::Path,
 };
 
-use image::{DynamicImage, ImageDecoder, ImageError, ImageReader, Limits, RgbImage};
+use image::{
+    DynamicImage, ImageBuffer, ImageDecoder, ImageError, ImageReader, Limits, Rgb, RgbImage,
+};
 
-use crate::EngineError;
+use crate::{EngineError, ImageInput};
 
 const MAX_ENCODED_BYTES: usize = 32 * 1024 * 1024;
 const MAX_PIXELS: u64 = 32_000_000;
 const MAX_SIDE: u32 = 16_384;
 
-pub(crate) fn read_file(path: &Path) -> Result<Vec<u8>, EngineError> {
+type Picture<'a> = ImageBuffer<Rgb<u8>, Cow<'a, [u8]>>;
+
+pub(crate) fn load(input: ImageInput<'_>) -> Result<Picture<'_>, EngineError> {
+    match input {
+        ImageInput::Path(path) => owned(decode(&read_file(path)?)?),
+        ImageInput::Encoded(bytes) => owned(decode(bytes)?),
+        ImageInput::Rgb {
+            data,
+            width,
+            height,
+        } => {
+            validate_dimensions(width, height)?;
+            if data.len() != width as usize * height as usize * 3 {
+                return Err(EngineError::invalid_image(
+                    "rgb24 length must equal width × height × 3",
+                ));
+            }
+            ImageBuffer::from_raw(width, height, Cow::Borrowed(data))
+                .ok_or_else(|| EngineError::invalid_image("Invalid RGB image"))
+        }
+    }
+}
+
+fn owned(image: RgbImage) -> Result<Picture<'static>, EngineError> {
+    ImageBuffer::from_raw(image.width(), image.height(), Cow::Owned(image.into_raw()))
+        .ok_or_else(|| EngineError::invalid_image("Invalid decoded RGB image"))
+}
+
+fn read_file(path: &Path) -> Result<Vec<u8>, EngineError> {
     if !fs::metadata(path)
         .map_err(EngineError::invalid_image)?
         .is_file()
@@ -34,7 +65,7 @@ pub(crate) fn read_file(path: &Path) -> Result<Vec<u8>, EngineError> {
     Ok(encoded)
 }
 
-pub(crate) fn validate_dimensions(width: u32, height: u32) -> Result<(), EngineError> {
+fn validate_dimensions(width: u32, height: u32) -> Result<(), EngineError> {
     if width == 0 || height == 0 {
         return Err(EngineError::invalid_image(
             "Image dimensions must be positive",
@@ -48,7 +79,7 @@ pub(crate) fn validate_dimensions(width: u32, height: u32) -> Result<(), EngineE
     Ok(())
 }
 
-pub(crate) fn decode(encoded: &[u8]) -> Result<RgbImage, EngineError> {
+fn decode(encoded: &[u8]) -> Result<RgbImage, EngineError> {
     if encoded.len() > MAX_ENCODED_BYTES {
         return Err(EngineError::limit("Encoded image exceeds 32 MiB"));
     }

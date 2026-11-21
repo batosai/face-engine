@@ -1,6 +1,7 @@
 use std::path::Path;
 
-use napi::bindgen_prelude::Uint8Array;
+use face_core::ImageInput;
+use napi::bindgen_prelude::{Float32Array, Uint8Array};
 use napi_derive::napi;
 
 #[napi(object)]
@@ -25,6 +26,21 @@ pub struct Detection {
     pub landmarks: Vec<Point>,
 }
 
+#[napi(object)]
+pub struct Embedding {
+    pub space_id: String,
+    pub values: Float32Array,
+}
+
+#[napi(object)]
+pub struct Face {
+    pub r#box: Rectangle,
+    pub detection_score: f64,
+    #[napi(ts_type = "[Point, Point, Point, Point, Point]")]
+    pub landmarks: Vec<Point>,
+    pub embedding: Embedding,
+}
+
 #[napi]
 pub struct NativeDetector(Option<face_core::Engine>);
 
@@ -39,18 +55,12 @@ impl NativeDetector {
 
     #[napi]
     pub fn detect_path(&mut self, path: String) -> napi::Result<Vec<Detection>> {
-        self.engine()?
-            .detect_path(Path::new(&path))
-            .map(to_detections)
-            .map_err(js_error)
+        self.detect(ImageInput::Path(Path::new(&path)))
     }
 
     #[napi]
     pub fn detect_encoded(&mut self, data: Uint8Array) -> napi::Result<Vec<Detection>> {
-        self.engine()?
-            .detect_encoded(&data)
-            .map(to_detections)
-            .map_err(js_error)
+        self.detect(ImageInput::Encoded(&data))
     }
 
     #[napi]
@@ -60,10 +70,35 @@ impl NativeDetector {
         width: u32,
         height: u32,
     ) -> napi::Result<Vec<Detection>> {
-        self.engine()?
-            .detect_rgb(&data, width, height)
-            .map(to_detections)
-            .map_err(js_error)
+        self.detect(ImageInput::Rgb {
+            data: &data,
+            width,
+            height,
+        })
+    }
+
+    #[napi]
+    pub fn analyze_path(&mut self, path: String) -> napi::Result<Vec<Face>> {
+        self.analyze(ImageInput::Path(Path::new(&path)))
+    }
+
+    #[napi]
+    pub fn analyze_encoded(&mut self, data: Uint8Array) -> napi::Result<Vec<Face>> {
+        self.analyze(ImageInput::Encoded(&data))
+    }
+
+    #[napi]
+    pub fn analyze_rgb(
+        &mut self,
+        data: Uint8Array,
+        width: u32,
+        height: u32,
+    ) -> napi::Result<Vec<Face>> {
+        self.analyze(ImageInput::Rgb {
+            data: &data,
+            width,
+            height,
+        })
     }
 
     #[napi]
@@ -78,16 +113,35 @@ impl NativeDetector {
             .as_mut()
             .ok_or_else(|| napi::Error::from_reason("ENGINE_CLOSED: The engine is closed"))
     }
+
+    fn detect(&mut self, input: ImageInput<'_>) -> napi::Result<Vec<Detection>> {
+        Ok(self
+            .engine()?
+            .detect(input)
+            .map_err(js_error)?
+            .into_iter()
+            .map(Detection::from)
+            .collect())
+    }
+
+    fn analyze(&mut self, input: ImageInput<'_>) -> napi::Result<Vec<Face>> {
+        Ok(self
+            .engine()?
+            .analyze(input)
+            .map_err(js_error)?
+            .into_iter()
+            .map(Face::from)
+            .collect())
+    }
 }
 
 fn js_error(error: face_core::EngineError) -> napi::Error {
     napi::Error::from_reason(format!("{}: {}", error.code, error.message))
 }
 
-fn to_detections(faces: Vec<face_core::Detection>) -> Vec<Detection> {
-    faces
-        .into_iter()
-        .map(|face| Detection {
+impl From<face_core::Detection> for Detection {
+    fn from(face: face_core::Detection) -> Self {
+        Self {
             r#box: Rectangle {
                 x: f64::from(face.bounds.x),
                 y: f64::from(face.bounds.y),
@@ -103,8 +157,23 @@ fn to_detections(faces: Vec<face_core::Detection>) -> Vec<Detection> {
                     y: f64::from(point.y),
                 })
                 .collect(),
-        })
-        .collect()
+        }
+    }
+}
+
+impl From<face_core::Face> for Face {
+    fn from(face: face_core::Face) -> Self {
+        let detection = Detection::from(face.detection);
+        Self {
+            r#box: detection.r#box,
+            detection_score: detection.detection_score,
+            landmarks: detection.landmarks,
+            embedding: Embedding {
+                space_id: face.embedding.space_id,
+                values: Float32Array::new(face.embedding.values),
+            },
+        }
+    }
 }
 
 #[napi(object)]

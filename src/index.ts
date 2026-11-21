@@ -1,7 +1,7 @@
 import { resolve } from 'node:path'
 import { types } from 'node:util'
 import { Worker } from 'node:worker_threads'
-import type { WorkerInput, WorkerReply, WorkerRequest } from './detection-worker.js'
+import type { Operation, WorkerInput, WorkerReply, WorkerRequest, WorkerResult } from './detection-worker.js'
 
 export type ImageInput = string | Uint8Array | {
   format: 'rgb24'
@@ -17,6 +17,9 @@ export type Detection = {
   detectionScore: number
   landmarks: [Point, Point, Point, Point, Point]
 }
+
+export type Embedding = { spaceId: string; values: Float32Array }
+export type Face = Detection & { embedding: Embedding }
 
 type EngineOptions = {
   manifest: string
@@ -62,7 +65,7 @@ export class FaceEngine {
   #exit = Promise.withResolvers<void>()
   #closing?: Promise<void>
   #failure?: Error
-  #requests = new Map<number, PromiseWithResolvers<Detection[]>>()
+  #requests = new Map<number, PromiseWithResolvers<WorkerResult>>()
   #capacity: number
   #nextRequest = 0
 
@@ -111,14 +114,26 @@ export class FaceEngine {
   }
 
   async detect(image: ImageInput): Promise<Detection[]> {
+    const result = await this.#submit('detect', image)
+    if (result.operation !== 'detect') throw new Error('Unexpected worker result for detect()')
+    return result.faces
+  }
+
+  async analyze(image: ImageInput): Promise<Face[]> {
+    const result = await this.#submit('analyze', image)
+    if (result.operation !== 'analyze') throw new Error('Unexpected worker result for analyze()')
+    return result.faces
+  }
+
+  #submit(operation: Operation, image: ImageInput): Promise<WorkerResult> {
     if (this.#closing || this.#failure) throw error('ENGINE_CLOSED', 'The engine is closed')
     if (this.#requests.size >= this.#capacity) throw error('QUEUE_FULL', 'The image queue is full')
     const id = this.#nextRequest++
-    const request = Promise.withResolvers<Detection[]>()
+    const request = Promise.withResolvers<WorkerResult>()
     this.#requests.set(id, request)
     try {
       const { input, transfer } = prepareInput(image)
-      this.#worker.postMessage({ id, input } satisfies WorkerRequest, transfer)
+      this.#worker.postMessage({ id, input, operation } satisfies WorkerRequest, transfer)
     } catch (failure) {
       this.#requests.delete(id)
       throw failure

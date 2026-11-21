@@ -2,11 +2,13 @@ use std::{path::Path, sync::OnceLock};
 
 use ort::{environment::Environment, session::Session, value::Outlet};
 
+mod align;
+mod embedding;
 mod engine;
 mod picture;
 mod scrfd;
 
-pub use engine::{Detection, Engine, EngineError, Point, Rect};
+pub use engine::{Detection, Embedding, Engine, EngineError, Face, ImageInput, Point, Rect};
 
 fn environment() -> ort::Result<&'static Environment> {
     static ENVIRONMENT: OnceLock<Result<Environment, String>> = OnceLock::new();
