@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "detector": {
+    "adapter": "scrfd-640-v1",
+    "path": "detector.onnx",
+    "sha256": "091f47eb1ec50bb922b9c83154d34247819489ef31f1ffa41a4f63937057c26f"
+  },
+  "recognizer": {
+    "adapter": "arcface-rgb112-v1",
+    "path": "recognizer.onnx",
+    "sha256": "9ea56cfea2f284a25dc702e96858e18969e7c0e3ac10479aa47de388d15f870c"
+  }
+}

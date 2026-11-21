@@ -3,6 +3,8 @@ import { resolve } from 'node:path'
 import { test } from 'node:test'
 import { FaceEngine, type Embedding } from '../src/index.js'
 
+const manifest = resolve(process.env.FACE_ENGINE_TEST_MANIFEST ?? 'profiles/buffalo-sc.json')
+
 function embedding(x: number, y = 0, spaceId = 'test-space'): Embedding {
   const values = new Float32Array(512)
   values.set([x, y])
@@ -10,7 +12,7 @@ function embedding(x: number, y = 0, spaceId = 'test-space'): Embedding {
 }
 
 test('compare returns the cosine of finite vectors without requiring unit norms', async (t) => {
-  const engine = await FaceEngine.create({ manifest: resolve('profiles/buffalo-sc.json') })
+  const engine = await FaceEngine.create({ manifest })
   t.after(() => engine.close())
 
   const x = embedding(4)
@@ -26,7 +28,7 @@ test('compare returns the cosine of finite vectors without requiring unit norms'
 })
 
 test('compare rejects incompatible spaces, dimensions, values and norms', async (t) => {
-  const engine = await FaceEngine.create({ manifest: resolve('profiles/buffalo-sc.json') })
+  const engine = await FaceEngine.create({ manifest })
   t.after(() => engine.close())
 
   const valid = embedding(1)

@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
-const binary = 'face-engine.linux-x64-gnu.node'
+const architectures = ['x64', 'arm64'] as const
 const onnxNotices = ['ONNX-Runtime-LICENSE', 'ONNX-Runtime-ThirdPartyNotices.txt']
 const localPathFields = new Set(['source_path', 'src_path', 'manifest_path'])
 
@@ -33,9 +33,15 @@ async function pack(directory: string, destination: string) {
 
 async function main([licenseDir, outputDirectory = 'artifacts', nativeDirectory = 'build']: string[]) {
   if (!licenseDir) throw new Error('Usage: npm run pack:local -- <notices-dir> [output-dir] [native-dir]')
+  const arch = process.arch
+  if (process.platform !== 'linux' || (arch !== 'x64' && arch !== 'arm64')) {
+    throw new Error('Expected a Linux x64 or ARM64 build host')
+  }
   const { name, version, private: privatePackage, type, main, types, imports } =
     JSON.parse(await readFile('package.json', 'utf8')) as ProjectManifest
-  const platformName = `${name}-linux-x64-gnu`
+  const platformName = `${name}-linux-${arch}-gnu`
+  const binary = `face-engine.linux-${arch}-gnu.node`
+  const optionalDependencies = Object.fromEntries(architectures.map((target) => [`${name}-linux-${target}-gnu`, version]))
   const destination = resolve(outputDirectory)
   const staging = await mkdtemp(join(tmpdir(), 'face-engine-pack-'))
   try {
@@ -58,11 +64,11 @@ async function main([licenseDir, outputDirectory = 'artifacts', nativeDirectory 
 
     await writeManifest(core, {
       name, version, private: privatePackage, type, main, types, imports,
-      optionalDependencies: { [platformName]: version },
+      optionalDependencies,
     })
     await writeManifest(platform, {
       name: platformName, version, private: privatePackage, main: binary,
-      os: ['linux'], cpu: ['x64'], libc: ['glibc'],
+      os: ['linux'], cpu: [arch], libc: ['glibc'],
     })
 
     await mkdir(destination, { recursive: true })

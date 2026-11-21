@@ -1,0 +1,113 @@
+name: Native packages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '24.22.1'
+  RUSTUP_TOOLCHAIN: '1.100.0'
+
+jobs:
+  packages:
+    name: Linux ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+    env:
+      PACKAGE_ARCH: ${{ matrix.arch }}
+      RUST_TARGET: ${{ matrix.target }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Set up Rust
+        run: rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal --component rustfmt --component clippy
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential libssl-dev pkg-config unzip
+      - name: Build and test
+        env:
+          FACE_ENGINE_TEST_MANIFEST: tests/fixtures/manifest.json
+        run: |
+          npm ci
+          cargo fmt --all -- --check
+          cargo clippy --workspace --locked --release -- -D warnings
+          cargo test -p face-core --locked --release
+          npm run build
+          npm test
+          ldd "build/face-engine.linux-$PACKAGE_ARCH-gnu.node"
+          readelf --version-info "build/face-engine.linux-$PACKAGE_ARCH-gnu.node"
+      - name: Collect third-party notices
+        run: |
+          notices="$RUNNER_TEMP/notices"
+          mkdir -p "$notices"
+          wheel="$RUNNER_TEMP/onnxruntime.whl"
+          curl --fail --location --retry 3 \
+            https://files.pythonhosted.org/packages/0d/ac/67ebbaab4b3083f2a6b27ee6c4aa400c7f8d6c72b5499aac7e4cd6ba74f5/onnxruntime-1.31.0-cp313-cp313-manylinux_2_28_x86_64.whl \
+            --output "$wheel"
+          printf '%s  %s\n' 37fd78cee5160c7a43a1730ccb3682ffd880af9c9e80385d625c0c2f8b125809 "$wheel" | sha256sum --check
+          unzip -p "$wheel" onnxruntime/LICENSE > "$notices/ONNX-Runtime-LICENSE"
+          unzip -p "$wheel" onnxruntime/ThirdPartyNotices.txt > "$notices/ONNX-Runtime-ThirdPartyNotices.txt"
+          cargo install --root "$RUNNER_TEMP/cargo-about" --locked --features cli cargo-about --version 0.9.3
+          "$RUNNER_TEMP/cargo-about/bin/cargo-about" generate \
+            --manifest-path crates/face-napi/Cargo.toml --config scripts/licenses.toml \
+            --target "$RUST_TARGET" --format json --locked --fail \
+            --output-file "$notices/Rust-dependencies.json"
+      - name: Pack npm archives
+        run: npm run pack:local -- "$RUNNER_TEMP/notices"
+      - name: Test offline installation under Ubuntu and Debian
+        run: |
+          docker build --target runtime --tag face-engine-runtime:noble -f scripts/Containerfile.x64 scripts
+          docker pull "node:$NODE_VERSION-trixie-slim"
+          for image in face-engine-runtime:noble "node:$NODE_VERSION-trixie-slim"; do
+            docker run --rm --network=none --workdir /tmp \
+              --env HOME=/tmp --env NAPI_RS_ENFORCE_VERSION_CHECK=1 --env "PACKAGE_ARCH=$PACKAGE_ARCH" \
+              --volume "$PWD/artifacts:/archives:ro" \
+              --volume "$PWD/tests/fixtures:/fixtures:ro" \
+              --volume "$PWD/dist/scripts/check-installed.js:/smoke.mjs:ro" \
+              "$image" bash -eo pipefail -c '
+                getconf GNU_LIBC_VERSION
+                if command -v cc || command -v rustc; then exit 1; fi
+                if ldconfig -p | grep -i onnxruntime; then exit 1; fi
+                npm install --offline --ignore-scripts --no-audit --no-fund \
+                  /archives/jrmc-face-engine-[0-9]*.tgz "/archives/jrmc-face-engine-linux-$PACKAGE_ARCH-gnu-"*.tgz
+                cp /smoke.mjs /tmp/smoke.mjs
+                node /tmp/smoke.mjs /fixtures/manifest.json
+              '
+          done
+      - name: Upload JavaScript package
+        if: matrix.arch == 'x64'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: npm-package
+          path: artifacts/jrmc-face-engine-[0-9]*.tgz
+          if-no-files-found: error
+          compression-level: 0
+      - name: Upload native package
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: linux-${{ matrix.arch }}-gnu
+          path: artifacts/jrmc-face-engine-linux-${{ matrix.arch }}-gnu-*.tgz
+          if-no-files-found: error
+          compression-level: 0

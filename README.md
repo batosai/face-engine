@@ -39,6 +39,12 @@ npm test
 npm run check:models
 ```
 
+The same integration tests can use the synthetic graphs bundled with the source tree.
+
+```sh
+FACE_ENGINE_TEST_MANIFEST=tests/fixtures/manifest.json npm test
+```
+
 ## Analyze an image
 
 With the [`buffalo-sc` profile](profiles/buffalo-sc.json), each embedding is a 512-value `Float32Array` with a `spaceId` that identifies the model weights and alignment recipe. A manifest can omit `recognizer` for detection-only use. Calling `analyze()` with that manifest rejects with `MODEL_INCOMPATIBLE`.
@@ -77,4 +83,4 @@ npm install --offline --ignore-scripts \
   /path/to/artifacts/jrmc-face-engine-linux-x64-gnu-0.0.0.tgz
 ```
 
-The planned GitHub Actions workflow will build, test, and store Linux x64 and ARM64 archives for future npm releases.
+The [Native packages workflow](.github/workflows/native-packages.yml) builds Linux x64 and ARM64 archives. Each job installs the archives offline in fresh Ubuntu 24.04 and Debian 13 containers, then tests detection, embedding generation, and comparison with synthetic graphs. The `.tgz` files are available as workflow artifacts after the checks pass.
