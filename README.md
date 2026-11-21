@@ -84,3 +84,5 @@ npm install --offline --ignore-scripts \
 ```
 
 The [Native packages workflow](.github/workflows/native-packages.yml) builds Linux x64 and ARM64 archives. Each job installs the archives offline in fresh Ubuntu 24.04 and Debian 13 containers, then tests detection, embedding generation, and comparison with synthetic graphs. The `.tgz` files are available as workflow artifacts after the checks pass.
+
+The [photo library example](example/README.md) uses these archives in a small Node.js and SQLite application for importing photos and sorting faces by person.

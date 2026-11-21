@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Photo Library · Face Engine</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="/" aria-label="Face Engine home"><span class="brand-mark" aria-hidden="true"></span> Face Engine</a>
+        <nav aria-label="Library sections">
+          <button type="button" data-view="photos" aria-current="page">Photos</button>
+          <button type="button" data-view="review">To review <span id="review-count" class="count" hidden></span></button>
+          <button type="button" data-view="people">People</button>
+        </nav>
+        <button class="button primary" id="import" type="button">Import photos</button>
+        <input id="files" name="photos" type="file" accept="image/jpeg,image/png" multiple hidden>
+      </div>
+    </header>
+
+    <main class="shell">
+      <p id="notice" role="status" class="notice" hidden></p>
+      <div class="page-heading">
+        <div><h1 id="title">Photos</h1><p id="subtitle"></p></div>
+      </div>
+      <div id="content" aria-labelledby="title"></div>
+    </main>
+
+    <dialog id="photo-dialog" class="photo-dialog" aria-labelledby="photo-title">
+      <header class="dialog-header">
+        <h2 id="photo-title"></h2>
+        <form method="dialog"><button class="button" type="submit">Close</button></form>
+      </header>
+      <p id="dialog-notice" role="status" class="notice dialog-notice" hidden></p>
+      <div id="photo-detail"></div>
+    </dialog>
+  </body>
+</html>
