@@ -14,7 +14,7 @@ const profile = {
   },
 }
 
-async function checkHash(path, expected) {
+async function checkHash(path: string, expected: string) {
   const hash = createHash('sha256')
   for await (const chunk of createReadStream(path)) hash.update(chunk)
   const actual = hash.digest('hex')
@@ -30,7 +30,7 @@ async function main() {
 
   const baselineRssKiB = process.resourceUsage().maxRSS
   const start = performance.now()
-  const { probeModels } = await import('../build/index.js')
+  const { probeModels } = await import('#native')
   const models = probeModels(detectorPath, recognizerPath)
 
   console.log(JSON.stringify({

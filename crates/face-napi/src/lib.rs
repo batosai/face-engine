@@ -21,6 +21,7 @@ pub struct Rectangle {
 pub struct Detection {
     pub r#box: Rectangle,
     pub detection_score: f64,
+    #[napi(ts_type = "[Point, Point, Point, Point, Point]")]
     pub landmarks: Vec<Point>,
 }
 

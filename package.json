@@ -3,18 +3,28 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "main": "index.js",
-  "types": "index.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "imports": {
+    "#native": "./build/index.js"
+  },
   "scripts": {
-    "build": "napi build --release --manifest-path crates/face-napi/Cargo.toml --output-dir build --platform --esm -- --locked",
-    "check:models": "node scripts/check-models.js",
-    "test": "node --test tests/detection.test.js"
+    "build": "npm run build:native && tsc",
+    "build:native": "napi build --release --manifest-path crates/face-napi/Cargo.toml --output-dir build --platform --esm -- --locked",
+    "typecheck": "tsc --noEmit",
+    "check:models": "node dist/scripts/check-models.js",
+    "test": "node --test dist/tests/detection.test.js"
   },
   "napi": {
     "binaryName": "face-engine",
-    "targets": ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"]
+    "targets": [
+      "x86_64-unknown-linux-gnu",
+      "aarch64-unknown-linux-gnu"
+    ]
   },
   "devDependencies": {
-    "@napi-rs/cli": "^3"
+    "@napi-rs/cli": "^3",
+    "@types/node": "^24.19.2",
+    "typescript": "^7.0.2"
   }
 }

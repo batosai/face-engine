@@ -1,14 +1,15 @@
 import assert from 'node:assert/strict'
+import { resolve } from 'node:path'
 import { test } from 'node:test'
-import { fileURLToPath } from 'node:url'
 import { FaceEngine } from '../index.js'
+import type { ImageInput } from '../index.js'
 
-const manifest = fileURLToPath(new URL('../profiles/buffalo-sc.json', import.meta.url))
+const manifest = resolve('profiles/buffalo-sc.json')
 const blankPng = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAMAAAAoyzS7AAAAA1BMVEUAAACnej3aAAAACklEQVQI12NgAAAAAgAB4iG8MwAAAABJRU5ErkJggg==',
   'base64',
 )
-const blankRgb = { format: 'rgb24', data: new Uint8Array(3), width: 1, height: 1 }
+const blankRgb = { format: 'rgb24', data: new Uint8Array(3), width: 1, height: 1 } satisfies ImageInput
 
 test('a rejected manifest leaves the process able to open engines', async (t) => {
   await assert.rejects(FaceEngine.create({ manifest: `${manifest}.missing` }), { code: 'MODEL_INCOMPATIBLE' })
