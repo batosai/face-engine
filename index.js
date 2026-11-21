@@ -1,6 +1,6 @@
-const { resolve } = require('node:path')
-const { types } = require('node:util')
-const { Worker } = require('node:worker_threads')
+import { resolve } from 'node:path'
+import { types } from 'node:util'
+import { Worker } from 'node:worker_threads'
 
 const MAX_ENCODED_BYTES = 32 * 1024 * 1024
 const MAX_PIXELS = 32_000_000
@@ -34,7 +34,7 @@ function prepareInput(image) {
   return { input: { data: copy, width, height }, transfer: [copy.buffer] }
 }
 
-class FaceEngine {
+export class FaceEngine {
   #worker
   #ready = Promise.withResolvers()
   #exit = Promise.withResolvers()
@@ -47,7 +47,7 @@ class FaceEngine {
   constructor(token, manifest, threads, maxPending) {
     if (token !== createEngine) throw new TypeError('Use FaceEngine.create()')
     this.#capacity = 1 + maxPending
-    this.#worker = new Worker(require.resolve('./scripts/detection-worker.cjs'), {
+    this.#worker = new Worker(new URL('./scripts/detection-worker.js', import.meta.url), {
       workerData: { manifest, threads },
     })
     this.#worker.on('message', ({ id, result, failure }) => {
@@ -115,5 +115,3 @@ class FaceEngine {
     this.#requests.clear()
   }
 }
-
-module.exports = { FaceEngine }

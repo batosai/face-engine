@@ -1,7 +1,7 @@
-const { createHash } = require('node:crypto')
-const { createReadStream } = require('node:fs')
-const { resolve } = require('node:path')
-const { performance } = require('node:perf_hooks')
+import { createHash } from 'node:crypto'
+import { createReadStream } from 'node:fs'
+import { resolve } from 'node:path'
+import { performance } from 'node:perf_hooks'
 
 const profile = {
   detector: {
@@ -30,7 +30,7 @@ async function main() {
 
   const baselineRssKiB = process.resourceUsage().maxRSS
   const start = performance.now()
-  const { probeModels } = require('../build/index.js')
+  const { probeModels } = await import('../build/index.js')
   const models = probeModels(detectorPath, recognizerPath)
 
   console.log(JSON.stringify({

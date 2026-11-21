@@ -2,12 +2,13 @@
   "name": "@jrmc/face-engine",
   "version": "0.0.0",
   "private": true,
-  "main": "index.cjs",
+  "type": "module",
+  "main": "index.js",
   "types": "index.d.ts",
   "scripts": {
-    "build": "napi build --release --manifest-path crates/face-napi/Cargo.toml --output-dir build --platform -- --locked",
-    "check:models": "node scripts/check-models.cjs",
-    "test": "node --test tests/detection.test.cjs"
+    "build": "napi build --release --manifest-path crates/face-napi/Cargo.toml --output-dir build --platform --esm -- --locked",
+    "check:models": "node scripts/check-models.js",
+    "test": "node --test tests/detection.test.js"
   },
   "napi": {
     "binaryName": "face-engine",

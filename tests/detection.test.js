@@ -1,9 +1,9 @@
-const assert = require('node:assert/strict')
-const { resolve } = require('node:path')
-const { test } = require('node:test')
-const { FaceEngine } = require('..')
+import assert from 'node:assert/strict'
+import { test } from 'node:test'
+import { fileURLToPath } from 'node:url'
+import { FaceEngine } from '../index.js'
 
-const manifest = resolve(__dirname, '../profiles/buffalo-sc.json')
+const manifest = fileURLToPath(new URL('../profiles/buffalo-sc.json', import.meta.url))
 const blankPng = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAMAAAAoyzS7AAAAA1BMVEUAAACnej3aAAAACklEQVQI12NgAAAAAgAB4iG8MwAAAABJRU5ErkJggg==',
   'base64',

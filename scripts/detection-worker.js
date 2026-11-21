@@ -1,4 +1,4 @@
-const { parentPort, workerData } = require('node:worker_threads')
+import { parentPort, workerData } from 'node:worker_threads'
 
 function sendFailure(failure, fallback, id) {
   const native = /^([A-Z_]+): (.*)$/s.exec(failure.message)
@@ -6,10 +6,10 @@ function sendFailure(failure, fallback, id) {
   parentPort.postMessage({ id, failure: { code, message } })
 }
 
-function start() {
+async function start() {
   let detector
   try {
-    const { NativeDetector } = require('../build/index.js')
+    const { NativeDetector } = await import('../build/index.js')
     detector = NativeDetector.open(workerData.manifest, workerData.threads)
   } catch (failure) {
     sendFailure(failure, 'MODEL_INCOMPATIBLE')
@@ -36,4 +36,4 @@ function start() {
   parentPort.postMessage({})
 }
 
-start()
+await start()
