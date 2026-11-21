@@ -1,0 +1,16 @@
+{
+  "name": "@jrmc/face-engine",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "napi build --release --manifest-path crates/face-napi/Cargo.toml --output-dir build --platform -- --locked",
+    "check:models": "node scripts/check-models.cjs"
+  },
+  "napi": {
+    "binaryName": "face-engine",
+    "targets": ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"]
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3"
+  }
+}

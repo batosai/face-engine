@@ -1,0 +1,9 @@
+[package]
+name = "face-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+ort = "=2.0.0-rc.15"
