@@ -2,6 +2,7 @@
   "name": "@jrmc/face-engine",
   "version": "0.1.0",
   "license": "MIT",
+  "private": true,
   "repository": {
     "type": "git",
     "url": "git+https://github.com/batosai/face-engine.git"
@@ -12,6 +13,16 @@
   "imports": {
     "#native": "./build/index.js"
   },
+  "files": [
+    "build/index.js",
+    "dist/src/index.js",
+    "dist/src/index.d.ts",
+    "dist/src/detection-worker.js",
+    "dist/src/detection-worker.d.ts",
+    "docs/usage.md",
+    "licenses/models/",
+    "profiles/yunet-sface.json"
+  ],
   "scripts": {
     "build": "npm run build:native && tsc",
     "build:native": "napi build --release --manifest-path crates/face-napi/Cargo.toml --output-dir build --platform --esm -- --locked",

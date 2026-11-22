@@ -14,7 +14,7 @@ type ProjectManifest = {
   version: string
   license: string
   repository: { type: string; url: string }
-  private?: boolean
+  files: string[]
   type: string
   main: string
   types: string
@@ -39,7 +39,7 @@ async function main([licenseDir, outputDirectory = 'artifacts', nativeDirectory 
   if (process.platform !== 'linux' || (arch !== 'x64' && arch !== 'arm64')) {
     throw new Error('Expected a Linux x64 or ARM64 build host')
   }
-  const { name, version, license, repository, private: privatePackage, type, main, types, imports } =
+  const { name, version, license, repository, files, type, main, types, imports } =
     JSON.parse(await readFile('package.json', 'utf8')) as ProjectManifest
   const platformName = `${name}-linux-${arch}-gnu`
   const binary = `face-engine.linux-${arch}-gnu.node`
@@ -72,11 +72,13 @@ async function main([licenseDir, outputDirectory = 'artifacts', nativeDirectory 
     await writeFile(join(platform, 'licenses', rustLicenses), licenseText + '\n')
 
     await writeManifest(core, {
-      name, version, license, repository, private: privatePackage, type, main, types, imports,
+      name, version, license, repository, type, main, types, imports,
+      files: [...files, 'THIRD-PARTY-NAPI-RS'],
       optionalDependencies,
     })
     await writeManifest(platform, {
-      name: platformName, version, license, repository, private: privatePackage, main: binary,
+      name: platformName, version, license, repository, main: binary,
+      files: [binary, 'licenses/'],
       os: ['linux'], cpu: [arch], libc: ['glibc'],
     })
 
