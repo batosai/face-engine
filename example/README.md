@@ -11,8 +11,8 @@ From `example/`, install the development dependencies, then install both archive
 ```sh
 npm ci
 npm install --no-save --package-lock=false --ignore-scripts \
-  /path/to/jrmc-face-engine-0.0.0.tgz \
-  /path/to/jrmc-face-engine-linux-x64-gnu-0.0.0.tgz
+  /path/to/jrmc-face-engine-0.1.0.tgz \
+  /path/to/jrmc-face-engine-linux-x64-gnu-0.1.0.tgz
 npm run build
 npm start
 ```

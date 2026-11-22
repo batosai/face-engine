@@ -4,6 +4,14 @@ Local face detection and embedding generation for Node.js. `FaceEngine` accepts 
 
 Face Engine's code is licensed under the [MIT License](LICENSE). The separately downloaded [model weights](licenses/models/README.md) retain their upstream licenses.
 
+## Install
+
+```sh
+npm install @jrmc/face-engine
+```
+
+The npm package selects its native addon through optional dependencies. Install on Linux x64 or ARM64 with Node.js 24. To use the supplied profile from another project, copy [`profiles/yunet-sface.json`](profiles/yunet-sface.json) into its `profiles/` directory and follow the [model setup](#model-setup). Pass the manifest path to `FaceEngine.create()`.
+
 ## Project layout
 
 | Path | Purpose |
@@ -56,7 +64,7 @@ FACE_ENGINE_TEST_MANIFEST=tests/fixtures/manifest.json npm test
 The [`yunet-sface` profile](profiles/yunet-sface.json) returns a 128-value `Float32Array` and a `spaceId` that identifies the model weights and alignment recipe. A manifest can omit `recognizer` for detection-only use. Calling `analyze()` with that manifest rejects with `MODEL_INCOMPATIBLE`.
 
 ```js
-import { FaceEngine } from './dist/src/index.js'
+import { FaceEngine } from '@jrmc/face-engine'
 
 const engine = await FaceEngine.create({ manifest: './profiles/yunet-sface.json' })
 try {
@@ -85,8 +93,8 @@ Install both archives from a consuming project.
 
 ```sh
 npm install --offline --ignore-scripts \
-  /path/to/artifacts/jrmc-face-engine-0.0.0.tgz \
-  /path/to/artifacts/jrmc-face-engine-linux-x64-gnu-0.0.0.tgz
+  /path/to/artifacts/jrmc-face-engine-0.1.0.tgz \
+  /path/to/artifacts/jrmc-face-engine-linux-x64-gnu-0.1.0.tgz
 ```
 
 The [Native packages workflow](.github/workflows/native-packages.yml) builds Linux x64 and ARM64 archives. Each job installs the archives offline in fresh Ubuntu 24.04 and Debian 13 containers, then tests detection, embedding generation, and comparison with synthetic graphs. The `.tgz` files are available as workflow artifacts after the checks pass.
