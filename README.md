@@ -6,7 +6,7 @@ Local face detection and embedding generation for Node.js. `FaceEngine` accepts 
 
 | Path | Purpose |
 | --- | --- |
-| `crates/face-core/` | Rust engine. Decodes images, detects faces with SCRFD, aligns them, and generates embeddings with ONNX Runtime. |
+| `crates/face-core/` | Rust engine. Decodes images, detects faces with YuNet, aligns them, and generates embeddings with ONNX Runtime. |
 | `crates/face-napi/` | NAPI-RS binding. Exposes the Rust engine and converts its results into JavaScript objects. |
 | `src/index.ts` | Public TypeScript API. Starts the engine, manages the bounded request queue, and handles shutdown. |
 | `src/detection-worker.ts` | Node.js worker that owns the Rust engine and processes requests off the main thread. |
@@ -27,19 +27,23 @@ npm run build
 npm run typecheck
 ```
 
-The integration tests and `npm run check:models` use `det_500m.onnx` and `w600k_mbf.onnx` in `models/buffalo_sc/`. The sample profile verifies the SHA-256 hash of each model. InsightFace provides these weights for non-commercial research. [Model release](https://github.com/deepinsight/insightface/releases/tag/model-zoo) · [Model license](https://github.com/deepinsight/insightface/blob/master/server/backend/insightface_server/licensing/defaults/buffalo_sc/MODEL.LICENSE)
+## Model setup
+
+Download the original YuNet and SFace ONNX weights from OpenCV Zoo. The [profile](profiles/yunet-sface.json) pins both SHA-256 hashes.
 
 ```sh
-mkdir -p models/buffalo_sc
-curl -fL https://github.com/deepinsight/insightface/releases/download/model-zoo/buffalo_sc.zip \
-  -o models/buffalo_sc.zip
-printf '%s\n' '57d31b56b6ffa911c8a73cfc1707c73cab76efe7f13b675a05223bf42de47c72  models/buffalo_sc.zip' \
-  | sha256sum --check && unzip -n models/buffalo_sc.zip -d models/buffalo_sc
-npm test
+mkdir -p models/yunet-sface
+curl -fL https://huggingface.co/opencv/face_detection_yunet/resolve/main/face_detection_yunet_2023mar.onnx \
+  -o models/yunet-sface/face_detection_yunet_2023mar.onnx
+curl -fL https://huggingface.co/opencv/face_recognition_sface/resolve/main/face_recognition_sface_2021dec.onnx \
+  -o models/yunet-sface/face_recognition_sface_2021dec.onnx
 npm run check:models
+npm test
 ```
 
-The same integration tests can use the synthetic graphs bundled with the source tree.
+The weights are supplied separately from the npm packages. See the [model licenses and attribution](licenses/models/README.md) for redistribution conditions.
+
+Run the integration tests without downloading the weights using the synthetic graphs bundled with the source tree.
 
 ```sh
 FACE_ENGINE_TEST_MANIFEST=tests/fixtures/manifest.json npm test
@@ -47,12 +51,12 @@ FACE_ENGINE_TEST_MANIFEST=tests/fixtures/manifest.json npm test
 
 ## Analyze an image
 
-With the [`buffalo-sc` profile](profiles/buffalo-sc.json), each embedding is a 512-value `Float32Array` with a `spaceId` that identifies the model weights and alignment recipe. A manifest can omit `recognizer` for detection-only use. Calling `analyze()` with that manifest rejects with `MODEL_INCOMPATIBLE`.
+The [`yunet-sface` profile](profiles/yunet-sface.json) returns a 128-value `Float32Array` and a `spaceId` that identifies the model weights and alignment recipe. A manifest can omit `recognizer` for detection-only use. Calling `analyze()` with that manifest rejects with `MODEL_INCOMPATIBLE`.
 
 ```js
 import { FaceEngine } from './dist/src/index.js'
 
-const engine = await FaceEngine.create({ manifest: './profiles/buffalo-sc.json' })
+const engine = await FaceEngine.create({ manifest: './profiles/yunet-sface.json' })
 try {
   const faces = await engine.analyze('./photos/portrait.jpg')
   console.log(faces.length)
@@ -87,10 +91,18 @@ The [Native packages workflow](.github/workflows/native-packages.yml) builds Lin
 
 ## Photo library example
 
-The example uses these archives in a small Node.js and SQLite application for importing photos and sorting faces by person. Follow the [example setup instructions](example/README.md) to install the archives and build the app. Then start it from the repository root.
+The example uses these archives in a small Node.js and SQLite application for importing photos and sorting faces by person. Follow the [model setup](#model-setup) and the [example setup instructions](example/README.md) to prepare the app. Then start it from the repository root.
 
 ```sh
 npm --prefix example start
 ```
 
 Open [http://127.0.0.1:4173](http://127.0.0.1:4173) to use the photo library.
+
+To override the port or data directory, set the environment variables when starting the example.
+
+```sh
+FACE_ENGINE_MANIFEST="$PWD/profiles/yunet-sface.json" \
+FACE_ENGINE_DATA_DIR="$PWD/example/data/yunet-sface" \
+PORT=4175 npm --prefix example start
+```

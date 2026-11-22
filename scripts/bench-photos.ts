@@ -7,7 +7,7 @@ import { promisify } from 'node:util'
 import { FaceEngine } from '../src/index.js'
 
 const execFileAsync = promisify(execFile)
-const manifest = fileURLToPath(new URL('../../profiles/buffalo-sc.json', import.meta.url))
+const manifest = fileURLToPath(new URL('../../profiles/yunet-sface.json', import.meta.url))
 
 function percentile(samples: number[], fraction: number) {
   const sorted = samples.toSorted((a, b) => a - b)

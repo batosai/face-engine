@@ -140,8 +140,8 @@ export class FaceEngine {
       !types.isFloat32Array(aValues) || !types.isFloat32Array(bValues)) {
       throw error('INCOMPATIBLE_EMBEDDING', 'Expected embeddings with a spaceId and Float32Array values')
     }
-    if (aValues.length !== 512 || bValues.length !== 512) {
-      throw error('INCOMPATIBLE_EMBEDDING', 'Expected two 512-dimensional embeddings')
+    if (aValues.length !== 128 || bValues.length !== 128) {
+      throw error('INCOMPATIBLE_EMBEDDING', 'Expected two 128-dimensional embeddings')
     }
     const left = types.isSharedArrayBuffer(aValues.buffer) ? new Float32Array(aValues) : aValues
     const right = types.isSharedArrayBuffer(bValues.buffer) ? new Float32Array(bValues) : bValues

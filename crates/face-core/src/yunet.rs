@@ -9,16 +9,11 @@ use ort::{
 use crate::{Detection, EngineError, Point, Rect};
 
 const SIDE: usize = 640;
-const PLANES: usize = SIDE * SIDE;
-const LEVELS: [(usize, [&str; 3]); 3] = [
-    (8, ["443", "446", "449"]),
-    (16, ["468", "471", "474"]),
-    (32, ["493", "496", "499"]),
-];
-const OUTPUT_WIDTHS: [usize; 3] = [1, 4, 10];
-const SCORE_MIN: f32 = 0.5;
-const NMS_THRESHOLD: f32 = 0.4;
-const MAX_FACES: usize = 256;
+const PLANE: usize = SIDE * SIDE;
+const SCORE_MIN: f32 = 0.6;
+const NMS_THRESHOLD: f32 = 0.3;
+const STRIDES: [usize; 3] = [8, 16, 32];
+const OUTPUTS: [(&str, usize); 4] = [("cls", 1), ("obj", 1), ("bbox", 4), ("kps", 10)];
 
 pub(crate) struct Detector {
     session: Session,
@@ -26,43 +21,39 @@ pub(crate) struct Detector {
 }
 
 impl Detector {
-    pub(crate) fn open(model: &[u8], threads: usize) -> Result<Self, EngineError> {
-        let env = crate::environment().map_err(EngineError::incompatible)?;
-        let session = Session::builder(env)
+    pub(crate) fn open(adapter: &str, model: &[u8], threads: usize) -> Result<Self, EngineError> {
+        if adapter != "yunet-640-v1" {
+            return Err(EngineError::incompatible("Unsupported detector adapter"));
+        }
+        let session = Session::builder(crate::environment().map_err(EngineError::incompatible)?)
             .map_err(EngineError::incompatible)?
             .with_intra_threads(threads)
             .map_err(EngineError::incompatible)?
             .commit_from_memory(model)
             .map_err(EngineError::incompatible)?;
-
         let inputs = session.inputs();
         if inputs.len() != 1
-            || inputs[0].name() != "input.1"
+            || inputs[0].name() != "input"
             || !tensor_shape(inputs[0].dtype(), &[1, 3, SIDE as i64, SIDE as i64])
         {
-            return Err(EngineError::incompatible("Unexpected SCRFD input"));
+            return Err(EngineError::incompatible("Unexpected YuNet input"));
         }
-        if session.outputs().len() != 9 {
-            return Err(EngineError::incompatible("Expected nine SCRFD outputs"));
-        }
-        for (stride, names) in LEVELS {
-            for (name, columns) in names.into_iter().zip(OUTPUT_WIDTHS) {
-                let outlet = session
+        for stride in STRIDES {
+            for (prefix, columns) in OUTPUTS {
+                let name = format!("{prefix}_{stride}");
+                let expected = [1, (SIDE / stride).pow(2) as i64, columns as i64];
+                if !session
                     .outputs()
                     .iter()
-                    .find(|output| output.name() == name)
-                    .ok_or_else(|| {
-                        EngineError::incompatible(format!("Missing SCRFD output {name}"))
-                    })?;
-                if !tensor_shape(outlet.dtype(), &[rows(stride) as i64, columns as i64]) {
+                    .any(|output| output.name() == name && tensor_shape(output.dtype(), &expected))
+                {
                     return Err(EngineError::incompatible(format!(
-                        "Unexpected SCRFD output shape for {name}"
+                        "Missing or incompatible YuNet output {name}"
                     )));
                 }
             }
         }
-
-        let tensor = Tensor::from_array(([1, 3, SIDE, SIDE], vec![0_f32; PLANES * 3]))
+        let tensor = Tensor::from_array(([1, 3, SIDE, SIDE], vec![0.0; 3 * PLANE]))
             .map_err(EngineError::incompatible)?;
         Ok(Self { session, tensor })
     }
@@ -75,37 +66,56 @@ impl Detector {
             .tensor
             .try_extract_tensor_mut()
             .map_err(EngineError::incompatible)?;
-        let scale = prepare(image, pixels);
+        let scale = SIDE as f32 / image.width().max(image.height()) as f32;
+        let width = (image.width() as f32 * scale)
+            .round()
+            .clamp(1.0, SIDE as f32) as usize;
+        let height = (image.height() as f32 * scale)
+            .round()
+            .clamp(1.0, SIDE as f32) as usize;
+        prepare(image, pixels, width, height);
         let outputs = self
             .session
             .run(ort::inputs![&self.tensor])
             .map_err(EngineError::incompatible)?;
+
         let mut candidates = Vec::new();
-        for (stride, names) in LEVELS {
-            let [scores, boxes, points] = read_level(&outputs, stride, names)?;
+        for stride in STRIDES {
+            let [classes, objects, boxes, keypoints] = read_level(&outputs, stride)?;
             let grid = SIDE / stride;
-            let stride = stride as f32;
-            for (row, score) in scores.iter().copied().enumerate() {
+            let step = stride as f32;
+            for (index, (&class, &object)) in classes.iter().zip(objects).enumerate() {
+                let score = (class.clamp(0.0, 1.0) * object.clamp(0.0, 1.0)).sqrt();
                 if !(SCORE_MIN..=1.0).contains(&score) {
                     continue;
                 }
-                let cell = row / 2;
-                let x = (cell % grid) as f32 * stride;
-                let y = (cell / grid) as f32 * stride;
-                let b = &boxes[row * 4..][..4];
-                let p = &points[row * 10..][..10];
-                if b.iter().chain(p).any(|value| !value.is_finite()) {
+                let bounds = &boxes[index * 4..][..4];
+                let column = (index % grid) as f32;
+                let row = (index / grid) as f32;
+                let center_x = (column + bounds[0]) * step;
+                let center_y = (row + bounds[1]) * step;
+                if !(0.0..width as f32).contains(&center_x)
+                    || !(0.0..height as f32).contains(&center_y)
+                {
+                    continue;
+                }
+                let (half_w, half_h) = (bounds[2].exp() * step * 0.5, bounds[3].exp() * step * 0.5);
+                let points = &keypoints[index * 10..][..10];
+                if !half_w.is_finite()
+                    || !half_h.is_finite()
+                    || points.iter().any(|value| !value.is_finite())
+                {
                     continue;
                 }
                 let edges = [
-                    (x - b[0] * stride) / scale,
-                    (y - b[1] * stride) / scale,
-                    (x + b[2] * stride) / scale,
-                    (y + b[3] * stride) / scale,
+                    (center_x - half_w) / scale,
+                    (center_y - half_h) / scale,
+                    (center_x + half_w) / scale,
+                    (center_y + half_h) / scale,
                 ];
                 let landmarks = std::array::from_fn(|i| Point {
-                    x: (x + p[i * 2] * stride) / scale,
-                    y: (y + p[i * 2 + 1] * stride) / scale,
+                    x: (column + points[2 * i]) * step / scale,
+                    y: (row + points[2 * i + 1]) * step / scale,
                 });
                 candidates.push(Candidate {
                     edges,
@@ -122,6 +132,58 @@ impl Detector {
     }
 }
 
+fn read_level<'a>(
+    outputs: &'a SessionOutputs<'_>,
+    stride: usize,
+) -> Result<[&'a [f32]; 4], EngineError> {
+    let mut tensors = [&[][..]; 4];
+    for (index, (prefix, columns)) in OUTPUTS.into_iter().enumerate() {
+        let name = format!("{prefix}_{stride}");
+        let output = outputs
+            .get(&name)
+            .ok_or_else(|| EngineError::incompatible(format!("Missing YuNet output {name}")))?;
+        let (shape, values) = output
+            .try_extract_tensor::<f32>()
+            .map_err(EngineError::incompatible)?;
+        if shape[..] != [1, (SIDE / stride).pow(2) as i64, columns as i64] {
+            return Err(EngineError::incompatible(format!(
+                "Unexpected YuNet output dimensions for {name}"
+            )));
+        }
+        tensors[index] = values;
+    }
+    Ok(tensors)
+}
+
+fn prepare(
+    image: &ImageBuffer<Rgb<u8>, impl Deref<Target = [u8]>>,
+    pixels: &mut [f32],
+    width: usize,
+    height: usize,
+) {
+    let columns: Vec<_> = (0..width)
+        .map(|x| source_coordinate(x, width, image.width() as usize))
+        .collect();
+    pixels.fill(0.0);
+    for y in 0..height {
+        let (top, bottom, dy) = source_coordinate(y, height, image.height() as usize);
+        for (x, &(left, right, dx)) in columns.iter().enumerate() {
+            let a = image.get_pixel(left, top).0;
+            let b = image.get_pixel(right, top).0;
+            let c = image.get_pixel(left, bottom).0;
+            let d = image.get_pixel(right, bottom).0;
+            for channel in 0..3 {
+                let upper = f32::from(a[channel]) * (1.0 - dx) + f32::from(b[channel]) * dx;
+                let lower = f32::from(c[channel]) * (1.0 - dx) + f32::from(d[channel]) * dx;
+                pixels[(2 - channel) * PLANE + y * SIDE + x] =
+                    (upper * (1.0 - dy) + lower * dy).round();
+            }
+        }
+    }
+}
+
+const MAX_FACES: usize = 256;
+
 fn tensor_shape(value: &ValueType, expected: &[i64]) -> bool {
     let ValueType::Tensor {
         ty: TensorElementType::Float32,
@@ -136,59 +198,6 @@ fn tensor_shape(value: &ValueType, expected: &[i64]) -> bool {
             .iter()
             .zip(expected)
             .all(|(&actual, &expected)| actual == -1 || actual == expected)
-}
-
-fn rows(stride: usize) -> usize {
-    (SIDE / stride).pow(2) * 2
-}
-
-fn read_level<'a>(
-    outputs: &'a SessionOutputs,
-    stride: usize,
-    names: [&str; 3],
-) -> Result<[&'a [f32]; 3], EngineError> {
-    let mut tensors = [&[][..]; 3];
-    for (index, (name, columns)) in names.into_iter().zip(OUTPUT_WIDTHS).enumerate() {
-        let output = outputs
-            .get(name)
-            .ok_or_else(|| EngineError::incompatible(format!("Missing SCRFD output {name}")))?;
-        let (shape, values) = output
-            .try_extract_tensor::<f32>()
-            .map_err(EngineError::incompatible)?;
-        if shape[..] != [rows(stride) as i64, columns as i64] {
-            return Err(EngineError::incompatible(format!(
-                "Unexpected SCRFD output dimensions for {name}"
-            )));
-        }
-        tensors[index] = values;
-    }
-    Ok(tensors)
-}
-
-fn prepare(image: &ImageBuffer<Rgb<u8>, impl Deref<Target = [u8]>>, pixels: &mut [f32]) -> f32 {
-    let (width, height) = (image.width() as usize, image.height() as usize);
-    let longest = width.max(height);
-    let w = (width * SIDE / longest).max(1);
-    let h = (height * SIDE / longest).max(1);
-    let xs: Vec<_> = (0..w).map(|x| source_coordinate(x, w, width)).collect();
-    pixels.fill(-127.5 / 128.0);
-
-    for y in 0..h {
-        let (top, bottom, dy) = source_coordinate(y, h, height);
-        for (x, &(left, right, dx)) in xs.iter().enumerate() {
-            let a = image.get_pixel(left, top).0;
-            let b = image.get_pixel(right, top).0;
-            let c = image.get_pixel(left, bottom).0;
-            let d = image.get_pixel(right, bottom).0;
-            for channel in 0..3 {
-                let upper = f32::from(a[channel]) * (1.0 - dx) + f32::from(b[channel]) * dx;
-                let lower = f32::from(c[channel]) * (1.0 - dx) + f32::from(d[channel]) * dx;
-                let rgb = (upper * (1.0 - dy) + lower * dy).round();
-                pixels[channel * PLANES + y * SIDE + x] = (rgb - 127.5) / 128.0;
-            }
-        }
-    }
-    h as f32 / height as f32
 }
 
 fn source_coordinate(index: usize, resized: usize, original: usize) -> (u32, u32, f32) {

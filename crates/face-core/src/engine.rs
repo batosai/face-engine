@@ -3,11 +3,7 @@ use std::{fs, path::Path};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
-use crate::{
-    embedding::{self, Recognizer},
-    picture,
-    scrfd::Detector,
-};
+use crate::{embedding::Recognizer, picture, yunet::Detector};
 
 pub struct EngineError {
     pub code: &'static str,
@@ -122,21 +118,25 @@ impl Engine {
         let json = fs::read(manifest_path).map_err(EngineError::incompatible)?;
         let manifest: Manifest =
             serde_json::from_slice(&json).map_err(EngineError::incompatible)?;
-        if manifest.version != 1 || manifest.detector.adapter != "scrfd-640-v1" {
-            return Err(EngineError::incompatible(
-                "Unsupported manifest version or detector adapter",
-            ));
+        if manifest.version != 1 {
+            return Err(EngineError::incompatible("Unsupported manifest version"));
         }
 
         let directory = manifest_path.parent().unwrap_or_else(|| Path::new("."));
-        let detector = Detector::open(&manifest.detector.read(directory)?, threads)?;
+        let detector = Detector::open(
+            &manifest.detector.adapter,
+            &manifest.detector.read(directory)?,
+            threads,
+        )?;
         let recognizer = manifest
             .recognizer
             .map(|model| {
-                if model.adapter != embedding::ADAPTER {
-                    return Err(EngineError::incompatible("Unsupported recognizer adapter"));
-                }
-                Recognizer::open(&model.read(directory)?, &model.sha256, threads)
+                Recognizer::open(
+                    &model.adapter,
+                    &model.read(directory)?,
+                    &model.sha256,
+                    threads,
+                )
             })
             .transpose()?;
         Ok(Self {

@@ -25,7 +25,7 @@ try {
   const a = first[0].embedding
   const b = second[0].embedding
   assert.ok(a.values instanceof Float32Array)
-  assert.equal(a.values.length, 512)
+  assert.equal(a.values.length, 128)
   assert.ok(Math.abs(Math.hypot(...a.values) - 1) < 1e-6)
   assert.ok(Math.abs(engine.compare(a, b) - 1) < 1e-12)
   console.log(`Installed package passed detection, embedding, and comparison on ${process.arch}.`)

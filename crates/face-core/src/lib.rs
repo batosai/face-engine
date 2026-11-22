@@ -1,12 +1,12 @@
 use std::{path::Path, sync::OnceLock};
 
-use ort::{environment::Environment, session::Session, value::Outlet};
+use ort::{environment::Environment, logging::LogLevel, session::Session, value::Outlet};
 
 mod align;
 mod embedding;
 mod engine;
 mod picture;
-mod scrfd;
+mod yunet;
 
 pub use embedding::compare_embeddings;
 pub use engine::{Detection, Embedding, Engine, EngineError, Face, ImageInput, Point, Rect};
@@ -42,6 +42,7 @@ pub fn probe_models(detector_path: &Path, recognizer_path: &Path) -> ort::Result
         .commit_from_file(detector_path)?;
     let recognizer = Session::builder(environment)?
         .with_intra_threads(1)?
+        .with_log_level(LogLevel::Error)?
         .commit_from_file(recognizer_path)?;
 
     Ok(Probe {

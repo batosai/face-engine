@@ -1,30 +1,25 @@
 import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
-import { resolve } from 'node:path'
+import { readFile } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
 import { performance } from 'node:perf_hooks'
 
-const profile = {
-  detector: {
-    file: 'det_500m.onnx',
-    sha256: '5e4447f50245bbd7966bd6c0fa52938c61474a04ec7def48753668a9d8b4ea3a',
-  },
-  recognizer: {
-    file: 'w600k_mbf.onnx',
-    sha256: '9cc6e4a75f0e2bf0b1aed94578f144d15175f357bdc05e815e5c4a02b319eb4f',
-  },
-}
+type Model = { path: string; sha256: string }
+type Profile = { detector: Model; recognizer: Model }
 
 async function checkHash(path: string, expected: string) {
   const hash = createHash('sha256')
   for await (const chunk of createReadStream(path)) hash.update(chunk)
   const actual = hash.digest('hex')
-  if (actual !== expected) throw new Error(`SHA-256 inattendu pour ${path} : ${actual}`)
+  if (actual !== expected) throw new Error(`Unexpected SHA-256 for ${path}: ${actual}`)
 }
 
 async function main() {
-  const directory = resolve(process.argv[2] ?? 'models/buffalo_sc')
-  const detectorPath = resolve(directory, profile.detector.file)
-  const recognizerPath = resolve(directory, profile.recognizer.file)
+  const manifest = resolve(process.argv[2] ?? 'profiles/yunet-sface.json')
+  const profile = JSON.parse(await readFile(manifest, 'utf8')) as Profile
+  if (!profile.recognizer) throw new Error('The manifest must include a recognizer')
+  const detectorPath = resolve(dirname(manifest), profile.detector.path)
+  const recognizerPath = resolve(dirname(manifest), profile.recognizer.path)
   await checkHash(detectorPath, profile.detector.sha256)
   await checkHash(recognizerPath, profile.recognizer.sha256)
 

@@ -53,6 +53,7 @@ async function main([licenseDir, outputDirectory = 'artifacts', nativeDirectory 
     await copyFile(join(nativeDirectory, 'index.js'), join(core, 'build', 'index.js'))
     await copyFile(join(nativeDirectory, binary), join(platform, binary))
     await copyFile('README.md', join(core, 'README.md'))
+    await cp('licenses/models', join(core, 'licenses', 'models'), { recursive: true })
     await copyFile('node_modules/@napi-rs/cli/LICENSE', join(core, 'THIRD-PARTY-NAPI-RS'))
     for (const notice of onnxNotices) {
       await copyFile(join(licenseDir, notice), join(platform, 'licenses', notice))

@@ -1,13 +1,13 @@
 {
   "version": 1,
   "detector": {
-    "adapter": "scrfd-640-v1",
+    "adapter": "yunet-640-v1",
     "path": "detector.onnx",
-    "sha256": "091f47eb1ec50bb922b9c83154d34247819489ef31f1ffa41a4f63937057c26f"
+    "sha256": "feb0c3615b9c864f3153e0a901fae965a76a8defd2e2c0b9b8d6ea545bf56441"
   },
   "recognizer": {
-    "adapter": "arcface-rgb112-v1",
+    "adapter": "sface-rgb112-v1",
     "path": "recognizer.onnx",
-    "sha256": "9ea56cfea2f284a25dc702e96858e18969e7c0e3ac10479aa47de388d15f870c"
+    "sha256": "a531c7d4883663c0034e15ea29c7dcc4363fd3fda22f3721bd2414f1720ecc53"
   }
 }

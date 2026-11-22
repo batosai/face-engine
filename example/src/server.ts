@@ -12,9 +12,9 @@ import type { Photo } from './types.js'
 const port = Number(process.env.PORT ?? 4173)
 if (!Number.isInteger(port) || port < 0 || port > 65_535) throw new Error('PORT must be between 0 and 65535')
 
-const dataDir = resolve(process.env.FACE_ENGINE_DATA_DIR ?? fileURLToPath(new URL('../data/', import.meta.url)))
+const dataDir = resolve(process.env.FACE_ENGINE_DATA_DIR ?? fileURLToPath(new URL('../data/yunet-sface/', import.meta.url)))
 const originals = join(dataDir, 'photos')
-const manifest = process.env.FACE_ENGINE_MANIFEST ?? fileURLToPath(new URL('../../profiles/buffalo-sc.json', import.meta.url))
+const manifest = process.env.FACE_ENGINE_MANIFEST ?? fileURLToPath(new URL('../../profiles/yunet-sface.json', import.meta.url))
 const engine = await FaceEngine.create({ manifest })
 await mkdir(originals, { recursive: true, mode: 0o700 })
 const database = new LibraryDatabase(join(dataDir, 'library.sqlite'))

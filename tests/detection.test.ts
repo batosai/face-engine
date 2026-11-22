@@ -5,7 +5,7 @@ import { dirname, join, resolve } from 'node:path'
 import { test } from 'node:test'
 import { FaceEngine, type ImageInput } from '../src/index.js'
 
-const manifest = resolve(process.env.FACE_ENGINE_TEST_MANIFEST ?? 'profiles/buffalo-sc.json')
+const manifest = resolve(process.env.FACE_ENGINE_TEST_MANIFEST ?? 'profiles/yunet-sface.json')
 const blankPng = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAMAAAAoyzS7AAAAA1BMVEUAAACnej3aAAAACklEQVQI12NgAAAAAgAB4iG8MwAAAABJRU5ErkJggg==',
   'base64',

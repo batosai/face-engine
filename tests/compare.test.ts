@@ -3,10 +3,10 @@ import { resolve } from 'node:path'
 import { test } from 'node:test'
 import { FaceEngine, type Embedding } from '../src/index.js'
 
-const manifest = resolve(process.env.FACE_ENGINE_TEST_MANIFEST ?? 'profiles/buffalo-sc.json')
+const manifest = resolve(process.env.FACE_ENGINE_TEST_MANIFEST ?? 'profiles/yunet-sface.json')
 
 function embedding(x: number, y = 0, spaceId = 'test-space'): Embedding {
-  const values = new Float32Array(512)
+  const values = new Float32Array(128)
   values.set([x, y])
   return { spaceId, values }
 }
@@ -22,7 +22,7 @@ test('compare returns the cosine of finite vectors without requiring unit norms'
   assert.ok(Math.abs(engine.compare(x, embedding(1, 1)) - Math.SQRT1_2) < 1e-12)
   assert.equal(engine.compare(embedding(3e38), embedding(1e-45)), 1)
 
-  const shared = new Float32Array(new SharedArrayBuffer(512 * Float32Array.BYTES_PER_ELEMENT))
+  const shared = new Float32Array(new SharedArrayBuffer(128 * Float32Array.BYTES_PER_ELEMENT))
   shared[0] = 1
   assert.equal(engine.compare(x, { spaceId: x.spaceId, values: shared }), 1)
 })
@@ -35,7 +35,7 @@ test('compare rejects incompatible spaces, dimensions, values and norms', async 
   const invalid = [
     embedding(1, 0, 'other-space'),
     embedding(1, 0, ''),
-    { ...valid, values: new Float32Array(511) },
+    { ...valid, values: new Float32Array(127) },
     { ...valid, values: [1, 0] } as unknown as Embedding,
     embedding(0),
     embedding(Number.NaN),

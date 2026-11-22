@@ -13,7 +13,7 @@ async function main(args: string[]) {
   if (args.length < 2 || args.length > 3 || args.some((arg) => !arg)) {
     throw new Error('Usage: npm run compare -- <photo-a> <photo-b> [manifest]')
   }
-  const [first, second, manifest = fileURLToPath(new URL('../../profiles/buffalo-sc.json', import.meta.url))] = args
+  const [first, second, manifest = fileURLToPath(new URL('../../profiles/yunet-sface.json', import.meta.url))] = args
   const engine = await FaceEngine.create({ manifest })
   try {
     const a = await embeddingFrom(engine, first)

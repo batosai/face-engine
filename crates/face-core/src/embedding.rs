@@ -2,18 +2,15 @@ use std::ops::Deref;
 
 use image::{ImageBuffer, Rgb, RgbImage};
 use ort::{
+    logging::LogLevel,
     session::Session,
     value::{Tensor, TensorElementType, ValueType},
 };
 
-use crate::{
-    Embedding, EngineError, Point,
-    align::{self, SIDE},
-};
+use crate::{Embedding, EngineError, Point, align};
 
-pub(crate) const ADAPTER: &str = "arcface-rgb112-v1";
-const DIMENSION: usize = 512;
-const PIXELS: usize = SIDE * SIDE;
+const DIMENSION: usize = 128;
+const SFACE_ADAPTER: &str = "sface-rgb112-v1";
 
 pub fn compare_embeddings(
     a_space: &str,
@@ -28,7 +25,7 @@ pub fn compare_embeddings(
     }
     if a.len() != DIMENSION || b.len() != DIMENSION {
         return Err(EngineError::incompatible_embedding(
-            "Expected two 512-dimensional embeddings",
+            "Expected two 128-dimensional embeddings",
         ));
     }
 
@@ -60,33 +57,45 @@ pub(crate) struct Recognizer {
 }
 
 impl Recognizer {
-    pub(crate) fn open(model: &[u8], sha256: &str, threads: usize) -> Result<Self, EngineError> {
+    pub(crate) fn open(
+        adapter: &str,
+        model: &[u8],
+        sha256: &str,
+        threads: usize,
+    ) -> Result<Self, EngineError> {
+        if adapter != SFACE_ADAPTER {
+            return Err(EngineError::incompatible("Unsupported recognizer adapter"));
+        }
+        let side = align::SIDE;
         let environment = crate::environment().map_err(EngineError::incompatible)?;
         let session = Session::builder(environment)
             .map_err(EngineError::incompatible)?
             .with_intra_threads(threads)
+            .map_err(EngineError::incompatible)?
+            // The original SFace graph lists its weights as optional inputs.
+            .with_log_level(LogLevel::Error)
             .map_err(EngineError::incompatible)?
             .commit_from_memory(model)
             .map_err(EngineError::incompatible)?;
         let inputs = session.inputs();
         let outputs = session.outputs();
         if inputs.len() != 1
-            || !compatible(inputs[0].dtype(), &[1, 3, SIDE as i64, SIDE as i64])
+            || !compatible(inputs[0].dtype(), &[1, 3, side as i64, side as i64])
             || outputs.len() != 1
             || !compatible(outputs[0].dtype(), &[1, DIMENSION as i64])
         {
-            return Err(EngineError::incompatible(
-                "Expected an ArcFace RGB 112 × 112 input and 512-dimensional output",
-            ));
+            return Err(EngineError::incompatible(format!(
+                "Expected an RGB {side} × {side} input and {DIMENSION}-dimensional output for {adapter}"
+            )));
         }
 
-        let tensor = Tensor::from_array(([1, 3, SIDE, SIDE], vec![0_f32; PIXELS * 3]))
+        let tensor = Tensor::from_array(([1, 3, side, side], vec![0_f32; side * side * 3]))
             .map_err(EngineError::incompatible)?;
         Ok(Self {
             session,
             tensor,
-            aligned: RgbImage::new(SIDE as u32, SIDE as u32),
-            space_id: format!("{ADAPTER}:sha256:{sha256}"),
+            aligned: RgbImage::new(side as u32, side as u32),
+            space_id: format!("{adapter}:sha256:{sha256}"),
         })
     }
 
@@ -102,9 +111,10 @@ impl Recognizer {
             .tensor
             .try_extract_tensor_mut()
             .map_err(EngineError::incompatible)?;
+        let plane = tensor.len() / 3;
         for (i, pixel) in self.aligned.pixels().enumerate() {
             for (channel, value) in pixel.0.into_iter().enumerate() {
-                tensor[channel * PIXELS + i] = (f32::from(value) - 127.5) / 127.5;
+                tensor[channel * plane + i] = f32::from(value);
             }
         }
 
@@ -117,7 +127,7 @@ impl Recognizer {
             .map_err(EngineError::incompatible)?;
         if shape[..] != [1, DIMENSION as i64] {
             return Err(EngineError::incompatible(
-                "Unexpected ArcFace output dimensions",
+                "Unexpected recognizer output dimensions",
             ));
         }
         let norm = values
@@ -127,7 +137,7 @@ impl Recognizer {
             .sqrt();
         if !norm.is_finite() || norm == 0.0 {
             return Err(EngineError::incompatible(
-                "ArcFace produced an invalid embedding norm",
+                "Recognizer produced an invalid embedding norm",
             ));
         }
         let values = values
