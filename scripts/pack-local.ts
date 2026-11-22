@@ -12,6 +12,7 @@ const localPathFields = new Set(['source_path', 'src_path', 'manifest_path'])
 type ProjectManifest = {
   name: string
   version: string
+  license: string
   private: boolean
   type: string
   main: string
@@ -37,7 +38,7 @@ async function main([licenseDir, outputDirectory = 'artifacts', nativeDirectory 
   if (process.platform !== 'linux' || (arch !== 'x64' && arch !== 'arm64')) {
     throw new Error('Expected a Linux x64 or ARM64 build host')
   }
-  const { name, version, private: privatePackage, type, main, types, imports } =
+  const { name, version, license, private: privatePackage, type, main, types, imports } =
     JSON.parse(await readFile('package.json', 'utf8')) as ProjectManifest
   const platformName = `${name}-linux-${arch}-gnu`
   const binary = `face-engine.linux-${arch}-gnu.node`
@@ -53,6 +54,8 @@ async function main([licenseDir, outputDirectory = 'artifacts', nativeDirectory 
     await copyFile(join(nativeDirectory, 'index.js'), join(core, 'build', 'index.js'))
     await copyFile(join(nativeDirectory, binary), join(platform, binary))
     await copyFile('README.md', join(core, 'README.md'))
+    await copyFile('LICENSE', join(core, 'LICENSE'))
+    await copyFile('LICENSE', join(platform, 'LICENSE'))
     await cp('licenses/models', join(core, 'licenses', 'models'), { recursive: true })
     await copyFile('node_modules/@napi-rs/cli/LICENSE', join(core, 'THIRD-PARTY-NAPI-RS'))
     for (const notice of onnxNotices) {
@@ -64,11 +67,11 @@ async function main([licenseDir, outputDirectory = 'artifacts', nativeDirectory 
     await writeFile(join(platform, 'licenses', rustLicenses), licenseText + '\n')
 
     await writeManifest(core, {
-      name, version, private: privatePackage, type, main, types, imports,
+      name, version, license, private: privatePackage, type, main, types, imports,
       optionalDependencies,
     })
     await writeManifest(platform, {
-      name: platformName, version, private: privatePackage, main: binary,
+      name: platformName, version, license, private: privatePackage, main: binary,
       os: ['linux'], cpu: [arch], libc: ['glibc'],
     })
 

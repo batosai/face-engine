@@ -2,6 +2,8 @@
 
 Local face detection and embedding generation for Node.js. `FaceEngine` accepts a JPEG or PNG path, encoded image bytes, or an RGB frame. `detect()` returns a bounding box, a detection score, and five landmarks per face in the orientation-corrected image. `analyze()` also returns a normalized embedding when a recognition model is configured.
 
+Face Engine's code is licensed under the [MIT License](LICENSE). The separately downloaded [model weights](licenses/models/README.md) retain their upstream licenses.
+
 ## Project layout
 
 | Path | Purpose |
@@ -103,6 +105,6 @@ To override the port or data directory, set the environment variables when start
 
 ```sh
 FACE_ENGINE_MANIFEST="$PWD/profiles/yunet-sface.json" \
-FACE_ENGINE_DATA_DIR="$PWD/example/data/yunet-sface" \
+FACE_ENGINE_DATA_DIR="$PWD/example/data" \
 PORT=4175 npm --prefix example start
 ```

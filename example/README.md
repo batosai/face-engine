@@ -22,7 +22,7 @@ Open `http://127.0.0.1:4173`. The default profile uses YuNet and SFace. The appl
 | Setting | Default |
 | --- | --- |
 | `FACE_ENGINE_MANIFEST` | `../profiles/yunet-sface.json` |
-| `FACE_ENGINE_DATA_DIR` | `example/data/yunet-sface/` |
+| `FACE_ENGINE_DATA_DIR` | `example/data/` |
 | `PORT` | `4173` |
 
 ## Build from this checkout
@@ -38,7 +38,7 @@ npm --prefix example run build
 
 From the repository root, start the example with `npm --prefix example start`. To use a different port, set `PORT=4175`.
 
-The default data directory uses the existing SFace trial library if it exists. To reuse a library created with an older model, back it up first. Start the example with `FACE_ENGINE_DATA_DIR` pointing to the copy, then reanalyze each photo. Suggestions compare embeddings only after they share the same `spaceId`. Reanalysis retains existing assignments when detections can be matched safely.
+The example stores its SQLite database and uploaded photos in `example/data/`. To reuse a library created with an older model, back it up first. Start the example with `FACE_ENGINE_DATA_DIR` pointing to the copy, then reanalyze each photo. Suggestions compare embeddings only after they share the same `spaceId`. Reanalysis retains existing assignments when detections can be matched safely.
 
 ## Sort the library
 
