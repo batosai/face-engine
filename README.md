@@ -10,7 +10,7 @@ Face Engine's code is licensed under the [MIT License](LICENSE). The separately 
 npm install @jrmc/face-engine
 ```
 
-The npm package selects its native addon through optional dependencies. Install on Linux x64 or ARM64 with Node.js 24. To use the supplied profile from another project, copy [`profiles/yunet-sface.json`](profiles/yunet-sface.json) into its `profiles/` directory and follow the [model setup](#model-setup). Pass the manifest path to `FaceEngine.create()`.
+The npm package selects its native addon through optional dependencies. See the [usage guide](docs/usage.md) for setting up the models, processing photos, and storing embeddings in your application.
 
 ## Project layout
 
